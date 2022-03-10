@@ -7,70 +7,99 @@ then logged in the download stats database (SQLite).
 Usage
 =====
 
-    Options may either be set via command line switches, or from a
-    configuration file.
+    The main functional parameters are set in download_counter.cfg.
+    Additional options may be set through command line arguments.
 
-    Using a config file
-    -------------------
-
-    The configuration file ('download_counter.cfg'), if used, must be in the
-    same directory as 'download_counter.py'. When the app is run without
-    any additional arguments, the app obtains its settings from the config
-    file.
 
     Command line switches
     ---------------------
 
-    Command line switches override any options provided by the config file.
+    usage: download_counter.py [-d] [-h] [-i] [-v] [-V]
 
-    usage: download_counter.py [-h] [-a] [-f] [-p] [-s ] [-w] [-v] [-d]
+    Arguments:
 
-Arguments:
+        -d, --docs
+            show this documentation and exit.
 
-    -h,--help: optional
-        Show short help and exit.
+        -h,--help
+            Show short help and exit.
 
-    -a, --accesslogs: string
-        Path to nginx 'access.log'
+        -i, --init, string
+            This option is required if you wish to count downloads in old
+            archived '.gz' files.
 
-    -f --files: list, default=[]
-        One or more file names or file extensions to count.
-        Must be a space separated list if more than one item.
-        If not specified, the database will be printed.
+            All access logs in path, (including .gz files), are read.
+            Note that matching download files are counted regardless of when
+            they were downloaded, so this option should only be used on first
+            run, (before the database contains data).
 
-        Example:
-        Count requests for 'robots.txt', '.jpg' and '.gif' files:
+            The path string should be entered in the form:
 
-            $ python3 download-counter -f robots.txt .jpg .gif
+                $ python3 download-counter -n '/var/log/nginx/access.log'
 
-    -p, --filepath, default=''
-        Path download directory. If not supplied, all file names matching
-        the -f option(s) will be counted.
+            which will read all logs starting with the specified string:
 
-        The path may just be the root of the download path, for example,
-        if download files are in:
+                * /var/log/nginx/access.log
+                * /var/log/nginx/access.log.1
+                * /var/log/nginx/access.log.2.gz
+                * /var/log/nginx/access.log.3.gz
+                * ...
 
-            * .../website/downloads/2001/
-            * .../website/downloads/2002/
-            * .../website/downloads/.../
+            Note that this option overrides ACCESSLOGS in download_counter.cfg.
 
-        then to catch files in all of these folders:
-            $ python3 download-counter -p '/website/downloads/'
+        -v, --verbose
+            print commands and database contents to standard output, and
+            runs as normal.
 
-    -s, --sqlite: string, optional, default='downloads.db'
-        Path to sqlite database
+        -V, --version
+            show programversion and exit.
 
-    -w, --webpage: string, optional, default=None
-        output path for HTML, disabled if not specified (default: '')
 
-    -v, --version: optional
-        show programversion and exit
+    Configuration file
+    ------------------
 
-    -V, --verbose: optional
-        print commands and database contents to standard output.
+    The configuration file ('download_counter.cfg') must be in the same
+    directory as 'download_counter.py'.
 
-    -d, --docs: optional
-        show this documentation and exit
+    The cfg file contains 5 sections:
+
+        ACCESSLOGS: One or more access logs.
+                    Log files must be plain text (NOT .gz archives).
+                    When more than one access.log files specified, files must be in
+                    reverse chronological order (process oldest first).
+
+            Default:    log1 = /var/log/nginx/access.log.1
+                        log2 = /var/log/nginx/access.log
+
+        SQLITE: Absolute or relative path to database.
+                By default the database will be in the same folder as
+                download_counter.py
+
+            Default: path = downloads.db
+
+        FILEPATH: The first part of the download file's string as it appears
+                  in the access log.
+                  If not supplied, all file names matching the FILENAMES
+                  option(s) will be counted.
+                  The default option will catch files in any of:
+
+                    * .../website/downloads/2001/
+                    * .../website/downloads/2002/
+                    * .../website/downloads/.../
+
+            Default:    path = /wp-content/uploads/
+
+        FILENAMES: Download files end of string.
+                   The default options will catch .zip and .exe files that
+                   begin with FILEPATH.
+
+            Default:    file1 = .zip
+                        file2 = .exe
+
+        WEBPAGE: Absolute or relative path to html output.
+                 HTML output is disabled if this path is not specified.
+
+            Default:    path = /var/www/html/downloads.html
 
 
 Background
@@ -118,9 +147,9 @@ How it Works
 Note:
 -----
 
-    --path and --file options are just strings that will be searched for in
-    the accesslog file(s). Regex is used to search the log file(s) for:
-    "<path-string> any-characters <file-string>"
+    FILEPATH and FILENAMES options are just strings that will be searched for
+    in the accesslog file(s). Regex is used to search the log file(s) for:
+        "<path-string> any-characters <file-string>"
 
 """
 
@@ -128,9 +157,12 @@ Note:
 import sys
 import sqlite3
 import argparse
+import configparser
 import re
+import gzip
+
 from datetime import datetime
-from configparser import ConfigParser
+from glob import iglob
 
 import download_counter_html as htm
 
@@ -145,14 +177,14 @@ def print_table(dbase):
     Used with verbose option.
     """
     sql_get_table = 'SELECT * FROM downloads'
-    print('ID \tFile \t\t Timestamp \t\t Total')
+    print('\nID \tFile \t\t Timestamp \t\t Total')
     try:
         conn = sqlite3.connect(dbase)
         with conn:
             records = conn.execute(sql_get_table)
             for row in records:
                 for val in row:
-                    print(val, end ='\t')
+                    print(val, end='\t')
                 print('')
     except sqlite3.OperationalError as err:
         sys.exit(err)
@@ -175,7 +207,7 @@ def get_db_time(con):
 
 
 def sql_table(con):
-    """ Create table if it doesn't exist."""
+    """ Create 'downloads' table if it doesn't exist."""
     cursor = con.cursor()
     cursor.execute('''CREATE TABLE IF NOT EXISTS downloads (
                                 id INTEGER PRIMARY KEY,
@@ -203,7 +235,9 @@ def get_record(record, pattern):
 
 
 def get_time(record):
-    """Return timestamp (date-time object) or quit."""
+    """Return timestamp (date-time object) from record,
+    or quit.
+    """
     time_string = re.search(r"\[.*\]", record)
     if time_string:
         _logtime = (time_string[0].strip('[]'))
@@ -257,14 +291,53 @@ def write_html(con, htmlfile):
             file.write(htm.html_bottom())
 
 
-def main(acclogs, dbase, searchstring, html_out):
+def init_db(logpath, opt, verbose):
+    """Similar to main() but reads all logs that start with 'logpath'
+    and does NOT check timestamp before counting.
+    """
+    if verbose:
+        print('\nInitalising\n-----------')
+    try:
+        conn = sqlite3.connect(opt['dbase'],
+                               detect_types=sqlite3.PARSE_DECLTYPES |
+                               sqlite3.PARSE_COLNAMES)
+        # Initialise table
+        conn.execute('DROP TABLE IF EXISTS downloads')
+        sql_table(conn)
+        for acclog in iglob(logpath + '*', recursive=False):
+            if verbose:
+                print(f'Using log: "{acclog}"')
+            if acclog.endswith('.gz'):
+                try:
+                    with gzip.open(acclog, 'rt') as file:
+                        log_to_sql(conn, file, opt['searchstring'])
+                except FileNotFoundError as err:
+                    print(err)
+            else:
+                try:
+                    with open(acclog, 'r', encoding="utf-8") as file:
+                        log_to_sql(conn, file, opt['searchstring'])
+                except FileNotFoundError as err:
+                    print(err)
+        # HTML output
+        if opt['html_out']:
+            write_html(conn, opt['html_out'])
+    except sqlite3.OperationalError as err:
+        sys.exit(err)
+    finally:
+        conn.commit()
+        conn.close()
+
+
+def main(opt):
+    #acclogs, opt['dbase'], opt['searchstring'], opt['html_out']):
     """Search for file names in the access logs that match
     the search criteria, and update the database.
     """
     _modified = False
     # Connect to database
     try:
-        conn = sqlite3.connect(dbase,
+        conn = sqlite3.connect(opt['dbase'],
                                detect_types=sqlite3.PARSE_DECLTYPES |
                                sqlite3.PARSE_COLNAMES)
         # Add table if not exists.
@@ -272,24 +345,17 @@ def main(acclogs, dbase, searchstring, html_out):
         # Get timestamp of most recent database entry
         db_last_updated = get_db_time(conn)
         # Get data from access.log(s)
-        for log in acclogs:
+        for log in opt['acclogs']:
             try:
                 with open(log, 'r', encoding="utf-8") as file:
-                    for regex in searchstring:
-                        log = file.readlines()
-                        for line in log:
-                            data = get_record(line, regex)
-                            if data:
-                                if data[1] > db_last_updated:
-                                    update_db(conn, data[0], data[1])
-                                    _modified = True
+                    _modified = log_to_sql(conn, file, opt['searchstring'],
+                                           db_last_updated)
             except FileNotFoundError as err:
-                # If this accesslog doesn't exist,
-                # print error and continue.
+                # If this accesslog doesn't exist, print error and continue.
                 print(err)
         # HTML output
-        if html_out:
-            write_html(conn, html_out)
+        if opt['html_out']:
+            write_html(conn, opt['html_out'])
     except sqlite3.OperationalError as err:
         sys.exit(err)
     finally:
@@ -299,85 +365,86 @@ def main(acclogs, dbase, searchstring, html_out):
         conn.close()
 
 
-def get_args(accesslogs, sqlite, files, path, webpage, verbose):
-    """Return dict of arguments from command line and / or
-    from download_counter.cfg
-    Command line arguments take priority.
+def log_to_sql(con, file, searchstring, timecheck=None):
+    """Read one log file and update database.
+    Initialise if timecheck=None.
     """
-    config = ConfigParser()
-    rslt = config.read('download_counter.cfg')
+    _modified = False
+    if not timecheck:
+        timecheck = datetime(1, 1, 1)
+    log = file.readlines()
+    for line in log:
+        for regex in searchstring:
+            data = get_record(line, regex)
+            if data:
+                if data[1] > timecheck:
+                    update_db(con, data[0], data[1])
+                    _modified = True
+    return _modified
 
-    cfg_accesslogs = list_section(config, 'ACCESSLOGS')
-    cfg_sqlite = first_item_in_section(config, 'SQLITE')
-    cfg_files = list_section(config, 'FILENAMES')
-    cfg_path = first_item_in_section(config, 'FILEPATH')
-    cfg_webpage = first_item_in_section(config, 'WEBPAGE')
 
-    if verbose:
-        print('\ndownload_counter.cfg arguments:')
-        print('-------------------------------')
-        print('ACCESSLOGS: \t', cfg_accesslogs)
-        print('SQLITE: \t', cfg_sqlite)
-        print('FILENAMES: \t', cfg_files)
-        print('FILEPATH: \t', cfg_path)
-        print('WEBPAGE: \t', cfg_webpage)
+def get_config(cla):
+    """Return dict of arguments from download_counter.cfg.
+    """
+    config = configparser.ConfigParser()
+    config.read('download_counter.cfg')
 
-    if not accesslogs:
-        accesslogs = cfg_accesslogs
-    if not sqlite:
-        sqlite = cfg_sqlite
-    if not files:
-        files = cfg_files
-    if not path:
-        path = cfg_path
-    if not webpage:
-        webpage = cfg_webpage
+    accesslogs = list_section(config, 'ACCESSLOGS')
+    sqlite = first_item_in_section(config, 'SQLITE')
+    files = list_section(config, 'FILENAMES')
+    path = first_item_in_section(config, 'FILEPATH')
+    webpage = first_item_in_section(config, 'WEBPAGE')
+
     re_patterns = [f'GET {re.escape(path)}.*{re.escape(file)}'
                    for file in files]
-    return {'acclogs' : accesslogs, 'dbase' : sqlite,
-            'searchstring' : re_patterns, 'html_out' : webpage}
-    
+
+    if cla.verbose:
+        print('\ndownload_counter.cfg arguments:')
+        print('-------------------------------')
+        print('ACCESSLOGS: \t', accesslogs)
+        print('SQLITE: \t', sqlite)
+        print('FILENAMES: \t', files)
+        print('FILEPATH: \t', path)
+        print('WEBPAGE: \t', webpage, '\n')
+        for exp in re_patterns:
+            print(f'Search for: "{exp}"')
+
+    return {'acclogs': accesslogs, 'dbase': sqlite,
+            'searchstring': re_patterns, 'html_out': webpage}
+
 
 def list_section(cfg, section):
     """Return list of values from cfg section.
     """
-    return [cfg[section][key] for key in cfg[section]]
+    try:
+        return [cfg[section][key] for key in cfg[section]]
+    except KeyError:
+        return []
 
 
 def first_item_in_section(cfg, section):
     """Return the first item from cfg section.
     """
-    return cfg[section][[key for key in cfg[section]][0]]
+    try:
+        return cfg.items(section)[0][1]
+    except (IndexError, configparser.NoSectionError):
+        return ""
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
                 description='Process access log to tally downloads.')
-    # Access log location
-    parser.add_argument('-a', '--accesslogs', nargs="+",
-                        type=str, metavar='log',
-                        default=[],
-                        help='list [paths to "access.log"] file(s)')
-    # Database location
-    parser.add_argument('-s', '--sqlite', type=str, metavar='path/to/dbase',
-                        help='output SQLite database file')
-    # Files to count
-    parser.add_argument('-f', '--files', action="extend", nargs="+",
-                        type=str, metavar='fname',
-                        default=[],
-                        help='list [filename/extension(s)] to monitor')
-    parser.add_argument('-p', '--filepath',
-                        type=str, metavar='fpath',
-                        help='path to download files')
-    # Webpage output
-    parser.add_argument('-w', '--webpage', type=str, metavar='path/to/.html',
-                        help='output path for HTML')
-    parser.add_argument('-v', '--version', action='version',
-                        version='%(prog)s 0.1.0')
-    parser.add_argument('-V', '--verbose', action='store_true',
-                        help='show documentation and exit')
+    # Show docs
     parser.add_argument('-d', '--docs', action='store_true',
                         help='show documentation and exit')
+    # Initialise
+    parser.add_argument('-i', '--init', metavar='path/to/logfiles')
+    # Verbose
+    parser.add_argument('-v', '--verbose', action='store_true')
+    # Show version
+    parser.add_argument('-V', '--version', action='version',
+                        version='%(prog)s 0.3.1')
+
 
     args = parser.parse_args()
 
@@ -389,9 +456,15 @@ if __name__ == '__main__':
         print('\nCommand line arguments:\n-----------------------')
         for arg in vars(args):
             print(f'--{arg}  \t{getattr(args, arg)}')
-    opt = get_args(args.accesslogs, args.sqlite, args.files,
-                   args.filepath, args.webpage, args.verbose)
+
+    options = get_config(args)
+
+    if args.init:
+        init_db(args.init, options, args.verbose)
+    else:
+        main(options)
+
     if args.verbose:
-        print('\nDatabase downloads table:\n-------------------------')
-        print_table(opt['dbase'])
-    main(opt['acclogs'], opt['dbase'], opt['searchstring'], opt['html_out'])
+        print_table(options['dbase'])
+
+        
