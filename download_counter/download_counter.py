@@ -1,4 +1,7 @@
-"""Download counter for nginx.
+# -*- coding: utf-8 -*-
+"""
+Download counter
+================
 
 Reads access.log and looks for files with specified file extensions, which are
 then logged in the download stats database (SQLite).
@@ -7,149 +10,118 @@ then logged in the download stats database (SQLite).
 Usage
 =====
 
-    The main functional parameters are set in download_counter.cfg.
-    Additional options may be set through command line arguments.
+The main functional parameters are set in download_counter.cfg.
+Additional options may be set through command line arguments.
 
 
-    Command line switches
-    ---------------------
+Command line switches
+---------------------
 
-    usage: download_counter.py [-d] [-h] [-i] [-v] [-V]
+usage: download_counter.py [-d] [-h] [-i] [-v] [-V]
 
-    Arguments:
+Arguments:
 
-        -d, --docs
-            show this documentation and exit.
+-d, --docs
+    show this documentation and exit.
 
-        -h,--help
-            Show short help and exit.
+-h, --help
+    Show short help and exit.
 
-        -i, --init, string
-            This option is required if you wish to count downloads in old
-            archived '.gz' files.
+-i, --init string
+    This option is required if you wish to count downloads in old
+    archived '.gz' files.
 
-            All access logs in path, (including .gz files), are read.
-            Note that matching download files are counted regardless of when
-            they were downloaded, so this option should only be used on first
-            run, (before the database contains data).
+    All access logs in path, (including .gz files), are read.
+    Matching download files are counted regardless of when they were
+    downloaded, so this option should only be used on first run, (before
+    the database contains data). This option overrides ACCESSLOGS in
+    download_counter.cfg.
 
-            The path string should be entered in the form:
+Example
+-------
+The path string should be entered in the form::
 
-                $ python3 download-counter -n '/var/log/nginx/access.log'
+    $ python3 download-counter -n '/var/log/nginx/access.log'
 
-            which will read all logs starting with the specified string:
+To read all logs::
 
-                * /var/log/nginx/access.log
-                * /var/log/nginx/access.log.1
-                * /var/log/nginx/access.log.2.gz
-                * /var/log/nginx/access.log.3.gz
-                * ...
+    * /var/log/nginx/access.log
+    * /var/log/nginx/access.log.1
+    * /var/log/nginx/access.log.2.gz
+    * /var/log/nginx/access.log.3.gz
+    * ...
 
-            Note that this option overrides ACCESSLOGS in download_counter.cfg.
+-v, --verbose
+    print commands and database contents to standard output.
 
-        -v, --verbose
-            print commands and database contents to standard output, and
-            runs as normal.
-
-        -V, --version
-            show programversion and exit.
-
-
-    Configuration file
-    ------------------
-
-    The configuration file ('download_counter.cfg') must be in the same
-    directory as 'download_counter.py'.
-
-    The cfg file contains 5 sections:
-
-        ACCESSLOGS: One or more access logs.
-                    Log files must be plain text (NOT .gz archives).
-                    When more than one access.log files specified, files must be in
-                    reverse chronological order (process oldest first).
-
-            Default:    log1 = /var/log/nginx/access.log.1
-                        log2 = /var/log/nginx/access.log
-
-        SQLITE: Absolute or relative path to database.
-                By default the database will be in the same folder as
-                download_counter.py
-
-            Default: path = downloads.db
-
-        FILEPATH: The first part of the download file's string as it appears
-                  in the access log.
-                  If not supplied, all file names matching the FILENAMES
-                  option(s) will be counted.
-                  The default option will catch files in any of:
-
-                    * .../website/downloads/2001/
-                    * .../website/downloads/2002/
-                    * .../website/downloads/.../
-
-            Default:    path = /wp-content/uploads/
-
-        FILENAMES: Download files end of string.
-                   The default options will catch .zip and .exe files that
-                   begin with FILEPATH.
-
-            Default:    file1 = .zip
-                        file2 = .exe
-
-        WEBPAGE: Absolute or relative path to html output.
-                 HTML output is disabled if this path is not specified.
-
-            Default:    path = /var/www/html/downloads.html
+-V, --version
+    show program version and exit.
 
 
-Background
-==========
+Configuration file
+------------------
 
-    While there are several WordPress modules for managing downloads, in 2022
-    it seems that they are all large, complex modules aimed at e-commerce.
-    From a security perspective, it's advisable to avoid presenting a larger
-    attack target than absolutely necessary, hence this small download counter
-    for NGINX.
+The configuration file ('download_counter.cfg') must be in the same
+directory as 'download_counter.py'.
+
+The cfg file contains 5 sections:
+
+**ACCESSLOGS:** One or more access logs.
+
+    Log files must be plain text (NOT .gz archives).
+    When more than one access.log files specified, files must be in
+    reverse chronological order (process oldest first).
+
+    Default:
+        - log1 = /var/log/nginx/access.log.1
+        - log2 = /var/log/nginx/access.log
+
+**SQLITE:** Absolute or relative path to database.
+
+    By default the database will be in the same folder as
+    download_counter.py
+
+    Default:
+        path = downloads.db
+
+**FILEPATH:** The first part of the download file's string.
+
+    This refers to the string as it appears in the access log.
+    If not supplied, all file names matching the FILENAMES
+    option(s) will be counted.
+
+    Default:
+        path = /wp-content/uploads/
+
+    The default option will catch files in any of:
+
+        * .../website/downloads/2001/
+        * .../website/downloads/2002/
+        * .../website/downloads/.../
+
+**FILENAMES:** Download files end of string.
+
+    The default options will catch .zip and .exe files that begin with
+    'FILEPATH'.
+
+    Default:
+        - file1 = .zip
+        - file2 = .exe
 
 
-How it Works
-------------
+**WEBPAGE:** Absolute or relative path to html output.
 
-    NGINX logs all access trafic in its 'access.log'. On a daily schedule
-    the logs are rotated by default (Ubuntu):
+    HTML output is disabled if this path is not specified.
 
-        * access.log -> access.log.1
-        * access.log.1 -> access.log.2.gz
-        * ...
-        * access.log.13.gz -> access.log.14.gz
-        * access.log.14.gz -> deleted.
-
-    Each file downloadled from a website on the server has a log entry in the
-    form:
-
-        Remote-IP - - [local-time-date] "GET /path/to/file.ext protocol"
-        status-code bytes_sent "http-referer" "http-user-agent"
-
-    As (by default) the 'access.log' file only contains logs for the current
-    day, this app should be run once per day (by a root cron job), and check
-    both 'access.log' and 'access.log.1' to ensure all relevant requests are
-    found.
-
-    From the log we need to find:
-
-        1. lines containing the file name or file extensions
-        2. with status code 200
-        3. after the last time it was counted
-
-    The results are stored in an SQLite database, and optionally used to
-    create an HTML page.
+    Default:
+        path = /var/www/html/downloads.html
 
 Note:
 -----
 
     FILEPATH and FILENAMES options are just strings that will be searched for
     in the accesslog file(s). Regex is used to search the log file(s) for:
-        "<path-string> any-characters <file-string>"
+    "<path-string> any-characters <file-string>"
 
 """
 
@@ -168,13 +140,34 @@ import download_counter_html as htm
 
 
 def default_date_time_format():
-    """Return the date-time format of access.log"""
+    """Return the date-time format of access.log
+
+    Modify this string if necessary to match the date-time string in the
+    access logs.
+
+    Returns
+    -------
+    string
+        datetime format string.
+
+    """
     return '%d/%b/%Y:%H:%M:%S %z'
 
 
 def print_table(dbase):
-    """Print contents of downloads in 'dbase'.
-    Used with verbose option.
+    """Print contents of downloads in 'dbase' to standard out.
+
+    This function is used only with --verbose option.
+
+    Parameters
+    ----------
+    dbase : string
+        Path to SQLite database.
+
+    Returns
+    -------
+    None
+
     """
     sql_get_table = 'SELECT * FROM downloads'
     print('\nID \tFile \t\t Timestamp \t\t Total')
@@ -192,14 +185,26 @@ def print_table(dbase):
 
 
 def get_db_time(con):
-    """Return most recent timestamp from database."""
+    """Return most recent timestamp from database.
+
+    Parameters
+    ----------
+    con : connection
+        Connection to the database.
+
+    Returns
+    -------
+    datetime
+        datetime.min if timestamp not found.
+
+    """
     con.row_factory = sqlite3.Row
     cur = con.cursor()
     try:
         cur.execute('select timestamp from downloads')
     except sqlite3.OperationalError as err:
         print(err)
-    recent = datetime(1, 1, 1)
+    recent = datetime.min
     for row in cur:
         if row['timestamp'] > recent:
             recent = row['timestamp']
@@ -207,7 +212,18 @@ def get_db_time(con):
 
 
 def sql_table(con):
-    """ Create 'downloads' table if it doesn't exist."""
+    """ Create 'downloads' table if it doesn't exist.
+
+    Parameters
+    ----------
+    con : connection
+        Connection to the database.
+
+    Returns
+    -------
+    None
+
+    """
     cursor = con.cursor()
     cursor.execute('''CREATE TABLE IF NOT EXISTS downloads (
                                 id INTEGER PRIMARY KEY,
@@ -220,8 +236,21 @@ def sql_table(con):
 def get_record(record, pattern):
     """Return (filename, time) from line when start
     and end of name are found, or None if not found.
+
+    Parameters
+    ----------
+    record : string
+        One line from access log.
+    pattern : string
+        Regex pattern:
+        f'GET {re.escape(start)}.*{re.escape(end)}'
+
+    Returns
+    -------
+    tuple
+        (Short filename string, datetime object) if successful,or None.
+
     """
-    # pattern = f'GET {re.escape(start)}.*{re.escape(end)}'
     found = re.search(pattern, record)
     # HTTP response status code is after the first
     # quoted string in record.
@@ -235,8 +264,17 @@ def get_record(record, pattern):
 
 
 def get_time(record):
-    """Return timestamp (date-time object) from record,
-    or quit.
+    """Return timestamp from record.
+
+    Parameters
+    ----------
+    record : string
+
+    Returns
+    -------
+    datetime
+        Exit if timestamp not found.
+
     """
     time_string = re.search(r"\[.*\]", record)
     if time_string:
@@ -252,8 +290,24 @@ def get_time(record):
 
 
 def update_db(con, fname, timestamp):
-    """If fname exists in database, update its download total and timestamp,
+    """Update database.
+
+    If fname exists in database, update its download total and timestamp,
     else insert it into the database with a count of 1.
+
+    Parameters
+    ----------
+    con : connection
+        Connection to the database.
+    fname : string
+        Name of the downloaded file.
+    timestamp : datetime
+        Timestamp of download.
+
+    Returns
+    -------
+    None
+
     """
     cursor = con.cursor()
     timestamp_query = 'Update downloads set timestamp = ? where filename = ?'
@@ -269,7 +323,20 @@ def update_db(con, fname, timestamp):
 
 
 def write_html(con, htmlfile):
-    """Write sql data to web page"""
+    """Write sql data to web page.
+
+    Parameters
+    ----------
+    con : connection
+        Connection to the database.
+    htmlfile : string
+        Path to html output file.
+
+    Returns
+    -------
+    None
+
+    """
     try:
         with open(htmlfile, 'w', encoding="utf-8") as file:
             file.write(htm.html_top())
@@ -292,8 +359,24 @@ def write_html(con, htmlfile):
 
 
 def init_db(logpath, opt, verbose):
-    """Similar to main() but reads all logs that start with 'logpath'
+    """Initialise database.
+
+    Similar to main() but reads all logs that start with 'logpath'
     and does NOT check timestamp before counting.
+
+    Parameters
+    ----------
+    logpath : string
+        Path to access logs.
+    opt : dict
+        Parameters from download_counter.cfg.
+    verbose : bool
+        Verbose when True.
+
+    Returns
+    -------
+    None
+
     """
     if verbose:
         print('\nInitalising\n-----------')
@@ -330,9 +413,22 @@ def init_db(logpath, opt, verbose):
 
 
 def main(opt):
-    #acclogs, opt['dbase'], opt['searchstring'], opt['html_out']):
-    """Search for file names in the access logs that match
-    the search criteria, and update the database.
+    """Count downloads from access logs.
+
+    Search for file names in the access logs that match the search criteria,
+    and update the database as necessary. The database is created
+    automatically if it does not exist. Downloads with timestamps older than
+    the last update are ignored.
+
+    Parameters
+    ----------
+    opt : dict
+       Contains string values: acclogs, dbase, searchstring, and html_out.
+
+    Returns
+    -------
+    None
+
     """
     _modified = False
     # Connect to database
@@ -366,12 +462,31 @@ def main(opt):
 
 
 def log_to_sql(con, file, searchstring, timecheck=None):
-    """Read one log file and update database.
-    Initialise if timecheck=None.
+    """Copy download data from log file to database.
+
+    Read one log file and update database.
+    Updating is handled by :func:`~download_counter.update_db`.
+
+    Parameters
+    ----------
+    con : connection
+        Connection to the database.
+    file : _io.TextIOWrapper
+        Pointer to access log.
+    searchstring : string
+        Regex pattern for filename in log.
+    timecheck : datetime
+        Initialise if timecheck=None.
+
+    Returns
+    -------
+    bool
+        True when database has been modified.
+
     """
     _modified = False
     if not timecheck:
-        timecheck = datetime(1, 1, 1)
+        timecheck = datetime.min
     log = file.readlines()
     for line in log:
         for regex in searchstring:
@@ -385,6 +500,21 @@ def log_to_sql(con, file, searchstring, timecheck=None):
 
 def get_config(cla):
     """Return dict of arguments from download_counter.cfg.
+
+    Config values are retrieved by :func:`~download_counter.list_section`.
+    Also print parameters from command line and config file when --verbose
+    command line argument is passed.
+
+    Parameters
+    ----------
+    cla : argparse.Namespace
+        Command line switches.
+
+    Returns
+    -------
+    dict
+        Values from configuration file.
+
     """
     config = configparser.ConfigParser()
     config.read('download_counter.cfg')
@@ -415,6 +545,19 @@ def get_config(cla):
 
 def list_section(cfg, section):
     """Return list of values from cfg section.
+
+    Parameters
+    ----------
+    cfg : configparser.ConfigParser
+        The ConfigParser object.
+    section : string
+        Section key.
+
+    Returns
+    -------
+    list
+        List of zero or more values.
+
     """
     try:
         return [cfg[section][key] for key in cfg[section]]
@@ -424,6 +567,19 @@ def list_section(cfg, section):
 
 def first_item_in_section(cfg, section):
     """Return the first item from cfg section.
+
+    Parameters
+    ----------
+    cfg : configparser.ConfigParser
+        The ConfigParser object.
+    section : string
+        Section key.
+
+    Returns
+    -------
+    string
+        First value from section, or empty string.
+
     """
     try:
         return cfg.items(section)[0][1]
@@ -443,8 +599,7 @@ if __name__ == '__main__':
     parser.add_argument('-v', '--verbose', action='store_true')
     # Show version
     parser.add_argument('-V', '--version', action='version',
-                        version='%(prog)s 0.3.1')
-
+                        version='%(prog)s 0.5.0')
 
     args = parser.parse_args()
 
@@ -466,5 +621,3 @@ if __name__ == '__main__':
 
     if args.verbose:
         print_table(options['dbase'])
-
-        

@@ -1,14 +1,25 @@
+# -*- coding: utf-8 -*-
 """HTML code for generating web page output.
 
-download_counter.py creates table data between html_top()
-and html_bottom().
+download_counter.py creates table data between html_top().
+and html_bottom(). This module provides the rest of the HTML for the
+download counter web page.
+
 
 This file may be modified according to need.
+
 """
 
 
 def html_top():
-    """Return beginning of html page."""
+    """Return beginning of html page.
+
+    Returns
+    -------
+    string
+        HTML output.
+
+    """
     return """<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -43,7 +54,14 @@ td {
 
 
 def html_bottom():
-    """Return end of html page."""
+    """Return end of html page.
+
+    Returns
+    -------
+    string
+        HTML output.
+
+    """
     return """</table>
 </body>
 </html>"""
