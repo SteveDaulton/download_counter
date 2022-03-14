@@ -6,6 +6,43 @@ Getting Started
 Installation
 ============
 
+Dependencies
+------------
+
+Download Counter requires Python3. Tested with Python 3.8.10 - slightly
+earlier versions may work, but are untested.
+
+
+Permissions
+-----------
+
+download_counter.py may either be run by passing the command to python:
+
+.. code-block:: console
+
+   $ python3 download_counter.py <args>
+
+or (recommended) by making download_counter.py executable, then run by entering
+the command name (including path) and argments:
+
+.. code-block:: console
+
+   $ sudo chmod +x download_counter.py
+   $ download_counter.py <args>
+
+
+Reading server access logs requires root / admin access. Run
+download_counter.py as root / admin. For example, to initialise the database
+on Linux:
+
+.. code-block:: console
+
+   $ sudo ./download_counter.py -i /var/log/nginx/access.log -v
+
+
+Installing
+----------
+
 To use Download Counter, place **download_counter.py**,
 **download_counter_html.py** and **download_counter.cfg** in a suitable
 location *outside* of your website. For example, they could be placed in a
@@ -17,11 +54,13 @@ folder in your home directory:
    $ cp download_counter.py ~/download_counter
    $ cp download_counter_html.py ~/download_counter
    $ cp download_counter.cfg ~/download_counter
+   $ sudo chmod +x ~/download_counter/download_counter.py
 
 
 Alternatively, if Download Counter is obtained as a ZIP or other archive file,
 simply extract the entire package to a convenient location outside of you
-website.
+website. Remember to set file execute permission for download_counter.py
+if required.
 
 **download_counter.py** is the main app.
 
