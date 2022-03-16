@@ -13,8 +13,9 @@ Rationale
 
 While there are several WordPress modules for managing downloads, in 2022
 it seems that they are all large, complex modules aimed at e-commerce.
-From a security perspective, it's advisable to avoid presenting a larger
-attack target than absolutely necessary, hence this small download counter.
+From a security perspective, it is advantageous to avoid presenting a larger
+attack target than absolutely necessary, hence this small download counter
+utility.
 
 
 What it does:
@@ -25,4 +26,4 @@ match the given search criteria. When found, they are logged in an SQLite
 database, along with the download timestamp and a count of how many times
 the file has been downloaded.
 
-The app may optionally generate an HTML page to display the database contents.
+Finally, the app generates an HTML page to display the database contents.

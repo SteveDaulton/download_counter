@@ -22,7 +22,7 @@ copyright = '2022, Steve Daulton'
 author = 'Steve Daulton'
 
 # The full version, including alpha/beta/rc tags
-release = '0.4.0'
+release = '0.6.0'
 
 
 # -- General configuration ---------------------------------------------------
@@ -49,15 +49,7 @@ exclude_patterns = []
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
 #
-# html_theme = 'alabaster'
-# html_theme = 'sphinxdoc'
-# html_theme = 'traditional'
-# html_theme = 'haiku'
-# html_theme = 'scrolls'
 html_theme = 'sphinx_rtd_theme'
-
-html_theme_options = {
-}
 
 
 # Add any paths that contain custom static files (such as style sheets) here,

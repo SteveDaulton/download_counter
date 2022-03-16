@@ -1,61 +1,46 @@
 Customisation
 #############
 
-Before use, the download_counter.cfg file must be customised to suit your
-server setup. This file must be in the same directory as download_counter.py.
+Before use, the **download_counter.cfg** file must be customised to suit your
+server setup. This file must be in the same directory as
+**download_counter.py**.
 
-Below are descriptions of the five sections of the config file, and suggested
-settings for common setups based on a WordPress installation on Nginx, running
-on Ubuntu Linux.
+Below are descriptions of the sections of the config file, and suggested
+settings for common setups based on a WordPress installation running on Nginx
+and Ubuntu Linux.
 
 
-ACCESSLOGS
-**********
+[ACCESSLOGS]
+************
 
 Specify the log files to analyse.
 
 Typically, for a WordPress site on Nginx, these will be:
-"/var/log/Nginx/access.log" and "/var/log/Nginx/access.log.1", which will
-jointly cover any 24 hour period. The logs must be listed oldest first.
-
-Files listed here must be plain text access.log files.
+:code:`/var/log/nginx/access.log` and :code:`/var/log/nginx/access.log.1`,
+which will jointly cover any 24 hour period. **The logs must be listed oldest
+first**. Files listed here must be plain text access.log files.
 
 Example
 -------
 .. code-block:: text
 
    [ACCESSLOGS]
-   log1 = /var/log/Nginx/access.log.1
-   log2 = /var/log/Nginx/access.log
+   log1 = /var/log/nginx/access.log.1
+   log2 = /var/log/nginx/access.log
 
 
-SQLITE
-******
+[FILEPATH]
+**********
 
-Specify the location of the database.
-
-Download Counter stores its data in an SQLite database. Typically this will
-be in the same directory as the download_counter.py file and can be defined
-with just the name of the file as the relative path.
-
-Example
--------
-.. code-block:: text
-
-   [SQLITE]
-   path = downloads.db
-
-
-FILEPATH
-********
-
-Specify the first part of the file path to search for in the log files.
+The first part of the search string to identify the downloads in the log files.
 
 This version of Download Counter supports only one FILEPATH parameter.
 Typically the downloads to be counted will have a common file path, which
 for WordPress sites is in the form:
-   
-   /wp-content/uploads/*<year>*/*<month>*/*<filename>*
+
+.. code-block:: text
+
+   .../wp-content/uploads/*<year>*/*<month>*/*<filename>*
 
 As "/wp-content/uploads/" is common to all download files, this is used
 as the first part of the search string when finding downloaded files.
@@ -68,10 +53,10 @@ Example
    path = /wp-content/uploads/
 
 
-FILENAMES
-*********
+[FILENAMES]
+***********
 
-Specify the last part of the file(s) to search for in the log files.
+The last part of the file(s) to search for in the log files.
 
 Typically this will be a list of file extensions.
 
@@ -84,17 +69,15 @@ Example
    file2 = .exe
 
 
-WEBPAGE
-*******
+[WEBPAGE]
+*********
 
-Specify the location for html output.
+The location for html output.
 
-Download Counter can optionally generate a web page for viewing the download
-totals. Typically this will be located within the public html directory of
-your website. The path may be absolute, or relative to the download_counter.py
-working directory.
-
-If omitted, no HTML will be generated.
+Download Counter generates a web page for viewing the download totals.
+Typically this will be located within the public html directory of your
+website. **This must be a fully qualified path**. If omitted, no HTML will
+be generated.
 
 Example
 -------
@@ -103,3 +86,28 @@ Example
    [WEBPAGE]
    path = /var/www/html/downloads.html
 
+
+[DATETIME]
+**********
+
+Datetime formats for reading access logs and writing the html webpage.
+This section has two settings, both of which are *required*:
+
+datetime_read
+-------------
+
+Format for reading access logs.
+
+Default:
+   %d/%b/%Y:%H:%M:%S %z
+
+   The default matches: "01/Jan/2022:23:35:05 +0000"
+
+datetime_write
+--------------
+Format for writing html webpage.
+
+Default:
+   %a %d %b %H:%M
+
+   The default matches: "Mon 01 Jan 18:35"

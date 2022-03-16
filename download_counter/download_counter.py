@@ -4,8 +4,9 @@
 Download counter
 ================
 
-Reads access.log and looks for files with specified file extensions, which are
-then logged in the download stats database (SQLite).
+Searches access.log files for successful downloads that match a specified
+search string. Matching downloads are tallied in an SQLite database, and
+results output to an html file.
 
 
 Usage
@@ -18,12 +19,12 @@ Additional options may be set through command line arguments.
 Command line switches
 ---------------------
 
-usage: download_counter.py [-d] [-h] [-i] [-v] [-V]
+usage: download_counter.py [-d] [-h] [-i] [-v] [-D] [-V]
 
 Arguments:
 
 -d, --docs
-    show this documentation and exit.
+    Show this documentation and exit.
 
 -h, --help
     Show short help and exit.
@@ -53,10 +54,13 @@ To read all logs::
     * ...
 
 -v, --verbose
-    print commands and database contents to standard output.
+    Print commands and database contents to stdout.
+
+-D, --debug
+    Print additional debug strings to stdout.
 
 -V, --version
-    show program version and exit.
+    Show program version and exit.
 
 
 Configuration file
@@ -65,11 +69,9 @@ Configuration file
 The configuration file ('download_counter.cfg') must be in the same
 directory as 'download_counter.py'.
 
-The cfg file contains 5 sections:
+**[ACCESSLOGS]** One or more access logs.
 
-**ACCESSLOGS:** One or more access logs.
-
-    Log files must be plain text (NOT .gz archives).
+    Log files must be plain text (not .gz archives).
     When more than one access.log files specified, files must be in
     reverse chronological order (process oldest first).
 
@@ -77,18 +79,10 @@ The cfg file contains 5 sections:
         - log1 = /var/log/nginx/access.log.1
         - log2 = /var/log/nginx/access.log
 
-**SQLITE:** Absolute or relative path to database.
-
-    By default the database will be in the same folder as
-    download_counter.py
-
-    Default:
-        path = downloads.db
-
-**FILEPATH:** The first part of the download file's string.
+**[FILEPATH]** The first part of the download file's string.
 
     This refers to the string as it appears in the access log.
-    If not supplied, all file names matching the FILENAMES
+    If not supplied, all file names matching the [FILENAMES]
     option(s) will be counted.
 
     Default:
@@ -100,7 +94,7 @@ The cfg file contains 5 sections:
         * .../website/downloads/2002/
         * .../website/downloads/.../
 
-**FILENAMES:** Download files end of string.
+**[FILENAMES]** Download files end of string.
 
     The default options will catch .zip and .exe files that begin with
     'FILEPATH'.
@@ -110,17 +104,34 @@ The cfg file contains 5 sections:
         - file2 = .exe
 
 
-**WEBPAGE:** Absolute or relative path to html output.
+**[WEBPAGE]** Fully qualified path for html output.
 
     HTML output is disabled if this path is not specified.
 
     Default:
         path = /var/www/html/downloads.html
 
+**[DATETIME]** Datetime formats for reading access logs and writing HTML.
+
+* **datetime_read**
+
+  Format for reading access logs.
+  The default matches: 01/Jan/2022:23:35:05 +0000
+
+  Default:
+        %d/%b/%Y:%H:%M:%S %z
+* **datetime_write**
+
+  Format for writing html webpage.
+  The default matches: Mon 01 Jan 18:35
+
+  Default:
+        %a %d %b %H:%M
+
 Note:
 -----
 
-    FILEPATH and FILENAMES options are just strings that will be searched for
+    [FILEPATH] and [FILENAMES] options are just strings to search for
     in the accesslog file(s). Regex is used to search the log file(s) for:
     "<path-string> any-characters <file-string>"
 
@@ -134,36 +145,80 @@ import configparser
 import re
 import gzip
 
+from pathlib import Path
 from datetime import datetime
 from glob import iglob
 
 import download_counter_html as htm
 
 
-def default_date_time_format():
-    """Return the date-time format of access.log
+def time_format(readf='', writef=''):
+    """Return the date-time format
 
-    Modify this string if necessary to match the date-time string in the
-    access logs.
+    Values from config for reading access logs and writing html.
+    Call either time_format.read or time_format.write.
+
+    Parameters
+    ----------
+    readf : string, default ''
+        Time format for reading access logs.
+    writef : string, default ''
+        Time format for writing html.
+
+    Attributes
+    ----------
+    read : string
+    write : string
+
+    Returns
+    -------
+    None
+
+    """
+    time_format.read = readf
+    time_format.write = writef
+
+
+def format_datetime_output(dt_string):
+    """Format dt_string as required for html output.
+
+    Parameters
+    ----------
+    dt_string : datetime
+        datetime object.
 
     Returns
     -------
     string
-        datetime format string.
-
+        Reformatted datetime string.
     """
-    return '%d/%b/%Y:%H:%M:%S %z'
+    # Format: day dom mon year hh:mm
+    return datetime.strftime(dt_string, time_format.write)
 
 
-def print_table(dbase):
-    """Print contents of downloads in 'dbase' to standard out.
+def db_path():
+    """Path to database file.
+
+    Parameters
+    ----------
+    None
+
+    Returns
+    -------
+    string
+        Fully qualified path to SQLite database file.
+    """
+    return Path(__file__).with_name('downloads.db')
+
+
+def print_table():
+    """Print contents of database to stdout.
 
     This function is used only with --verbose option.
 
     Parameters
     ----------
-    dbase : string
-        Path to SQLite database.
+    None
 
     Returns
     -------
@@ -173,7 +228,7 @@ def print_table(dbase):
     sql_get_table = 'SELECT * FROM downloads'
     print('\nID \tFile \t\t Timestamp \t\t Total')
     try:
-        conn = sqlite3.connect(dbase)
+        conn = sqlite3.connect(db_path())
         with conn:
             records = conn.execute(sql_get_table)
             for row in records:
@@ -282,7 +337,7 @@ def get_time(record):
         _logtime = (time_string[0].strip('[]'))
         try:
             _timestamp = datetime.strptime(_logtime,
-                                           default_date_time_format())
+                                           time_format.read)
             return _timestamp.replace(tzinfo=None)
         except ValueError as err:
             sys.exit(err)
@@ -352,14 +407,14 @@ def write_html(con, htmlfile):
                 # Weird formatting below is for pretty html.
                 file.write(f'''    <td>{row[0]}</td>
     <td>{row[1]}</td>
-    <td>{row[2]}</td>
+    <td>{format_datetime_output(row[2])}</td>
     <td>{row[3]}</td>
 ''')
                 file.write('  </tr>\n')
             file.write(htm.html_bottom())
 
 
-def init_db(logpath, opt, verbose):
+def init_db(logpath, opt):
     """Initialise database.
 
     Similar to main() but reads all logs that start with 'logpath'
@@ -371,25 +426,23 @@ def init_db(logpath, opt, verbose):
         Path to access logs.
     opt : dict
         Parameters from download_counter.cfg.
-    verbose : bool
-        Verbose when True.
 
     Returns
     -------
     None
 
     """
-    if verbose:
+    if args.verbose:
         print('\nInitalising\n-----------')
     try:
-        conn = sqlite3.connect(opt['dbase'],
+        conn = sqlite3.connect(db_path(),
                                detect_types=sqlite3.PARSE_DECLTYPES |
                                sqlite3.PARSE_COLNAMES)
         # Initialise table
         conn.execute('DROP TABLE IF EXISTS downloads')
         sql_table(conn)
         for acclog in iglob(logpath + '*', recursive=False):
-            if verbose:
+            if args.verbose:
                 print(f'Using log: "{acclog}"')
             if acclog.endswith('.gz'):
                 try:
@@ -406,6 +459,10 @@ def init_db(logpath, opt, verbose):
         # HTML output
         if opt['html_out']:
             write_html(conn, opt['html_out'])
+            check_path('Web page', opt['html_out'])
+        elif args.debug:
+            print('\nNo path for HTML output.')
+
     except sqlite3.OperationalError as err:
         sys.exit(err)
     finally:
@@ -424,7 +481,7 @@ def main(opt):
     Parameters
     ----------
     opt : dict
-       Contains string values: acclogs, dbase, searchstring, and html_out.
+       Contains string values: acclogs, searchstring, and html_out.
 
     Returns
     -------
@@ -434,7 +491,7 @@ def main(opt):
     _modified = False
     # Connect to database
     try:
-        conn = sqlite3.connect(opt['dbase'],
+        conn = sqlite3.connect(db_path(),
                                detect_types=sqlite3.PARSE_DECLTYPES |
                                sqlite3.PARSE_COLNAMES)
         # Add table if not exists.
@@ -453,13 +510,17 @@ def main(opt):
         # HTML output
         if opt['html_out']:
             write_html(conn, opt['html_out'])
+            check_path('Web page', opt['html_out'])
+        elif args.debug:
+            print('\nNo path for HTML output.')
     except sqlite3.OperationalError as err:
         sys.exit(err)
     finally:
-        if _modified:
-            conn.commit()
-            conn.execute("VACUUM")
-        conn.close()
+        if conn:
+            if _modified:
+                conn.commit()
+                conn.execute("VACUUM")
+            conn.close()
 
 
 def log_to_sql(con, file, searchstring, timecheck=None):
@@ -499,17 +560,17 @@ def log_to_sql(con, file, searchstring, timecheck=None):
     return _modified
 
 
-def get_config(cla):
+def get_config():
     """Return dict of arguments from download_counter.cfg.
 
-    Config values are retrieved by :func:`~download_counter.list_section`.
+    List values are retrieved by :func:`~download_counter.list_section`.
+    Single values retrieved by :func:`~download_counter.first_item_in_section`.
     Also print parameters from command line and config file when --verbose
     command line argument is passed.
 
     Parameters
     ----------
-    cla : argparse.Namespace
-        Command line switches.
+    None
 
     Returns
     -------
@@ -518,30 +579,40 @@ def get_config(cla):
 
     """
     config = configparser.ConfigParser()
-    config.read('download_counter.cfg')
+    _abs_cfgpath = Path(__file__).with_name('download_counter.cfg')
+    check_path('cfg', _abs_cfgpath)
 
+    config.read(_abs_cfgpath)
     accesslogs = list_section(config, 'ACCESSLOGS')
-    sqlite = first_item_in_section(config, 'SQLITE')
     files = list_section(config, 'FILENAMES')
     path = first_item_in_section(config, 'FILEPATH')
     webpage = first_item_in_section(config, 'WEBPAGE')
+    datetime_read = config.get('DATETIME', 'datetime_read', raw=True)
+    datetime_write = config.get('DATETIME', 'datetime_write', raw=True)
 
     re_patterns = [f'GET {re.escape(path)}.*{re.escape(file)}'
                    for file in files]
 
-    if cla.verbose:
+    if args.verbose:
         print('\ndownload_counter.cfg arguments:')
         print('-------------------------------')
-        print('ACCESSLOGS: \t', accesslogs)
-        print('SQLITE: \t', sqlite)
-        print('FILENAMES: \t', files)
-        print('FILEPATH: \t', path)
-        print('WEBPAGE: \t', webpage, '\n')
+        print('[ACCESSLOGS]:')
+        for log in accesslogs:
+            print(f'   {log}')
+        print('[FILENAMES]:')
+        for fname in files:
+            print(f'   {fname}')
+        print(f'[FILEPATH]:\n   {path}')
+        print(f'[WEBPAGE]:\n   {webpage}')
+        print('[DATETIME]:')
+        print('   datetime_read: \t', datetime_read)
+        print('   datetime_write: \t', datetime_write)
         for exp in re_patterns:
             print(f'Search for: "{exp}"')
 
-    return {'acclogs': accesslogs, 'dbase': sqlite,
-            'searchstring': re_patterns, 'html_out': webpage}
+    return {'acclogs': accesslogs, 'searchstring': re_patterns,
+            'html_out': webpage, 'datetime_read': datetime_read,
+            'datetime_write': datetime_write}
 
 
 def list_section(cfg, section):
@@ -588,19 +659,47 @@ def first_item_in_section(cfg, section):
         return ""
 
 
+def check_path(name, file):
+    """Check if file exists.
+
+    Parameters
+    ----------
+    name : string
+        File identifier / file name.
+    file : string
+        File path.
+
+    Returns
+    -------
+    bool
+        True or exit.
+    """
+    if Path(file).exists():
+        if args.debug:
+            print(f'\n{name} OK: "{file}"')
+        return True
+    sys.exit(f'\n{name} not found: "{file}"')
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
-                description='Process access log to tally downloads.')
+        description='Process access log to tally downloads.')
     # Show docs
-    parser.add_argument('-d', '--docs', action='store_true',
-                        help='show documentation and exit')
+    parser.add_argument(
+        '-d', '--docs', action='store_true',
+        help='show documentation and exit')
     # Initialise
-    parser.add_argument('-i', '--init', metavar='path/to/logfiles')
+    parser.add_argument(
+        '-i', '--init', metavar='path/to/logfiles')
     # Verbose
-    parser.add_argument('-v', '--verbose', action='store_true')
+    parser.add_argument(
+        '-v', '--verbose', action='store_true')
+    # Debug
+    parser.add_argument(
+        '-D', '--debug', action='store_true')
     # Show version
-    parser.add_argument('-V', '--version', action='version',
-                        version='%(prog)s 0.5.0')
+    parser.add_argument(
+        '-V', '--version', action='version', version='%(prog)s 0.6.0')
 
     args = parser.parse_args()
 
@@ -613,12 +712,14 @@ if __name__ == '__main__':
         for arg in vars(args):
             print(f'--{arg}  \t{getattr(args, arg)}')
 
-    options = get_config(args)
+    options = get_config()
+    # Set datetime format strings
+    time_format(options['datetime_read'], options['datetime_write'])
 
     if args.init:
-        init_db(args.init, options, args.verbose)
+        init_db(args.init, options)
     else:
         main(options)
 
     if args.verbose:
-        print_table(options['dbase'])
+        print_table()

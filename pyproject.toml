@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "download_counter"
-version = "0.5.0"
+version = "0.6.0"
 description = "Download counter for NGINX"
 authors = ["SteveDaulton <stevedaulton@gmail.com>"]
 
