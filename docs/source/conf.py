@@ -12,7 +12,7 @@
 #
 import os
 import sys
-sys.path.insert(0, os.path.abspath('../../download_counter/'))
+sys.path.insert(0, os.path.abspath('../../dlcounter/'))
 
 
 # -- Project information -----------------------------------------------------
@@ -22,7 +22,7 @@ copyright = '2022, Steve Daulton'
 author = 'Steve Daulton'
 
 # The full version, including alpha/beta/rc tags
-release = '0.6.0'
+release = '0.9.0'
 
 
 # -- General configuration ---------------------------------------------------

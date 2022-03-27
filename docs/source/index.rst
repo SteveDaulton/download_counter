@@ -39,9 +39,10 @@ form:
    status-code bytes_sent "http-referer" "http-user-agent"
 
 As (by default) the 'access.log' file only contains logs for the current
-day, this app should be run once per day (by a root cron job), and check
-both 'access.log' and 'access.log.1' to ensure all relevant requests are
-found.
+day, this app should be run once per day (by a root cron job), immediately
+before log rotation. See the section :ref:`"Log Rotation" <logrotate>` for
+how to do this. (Alternatively, both 'access.log' and 'access.log.1'
+could be analyzed at any time of day, though this is much less efficient.)
 
 From the log we need to find:
 

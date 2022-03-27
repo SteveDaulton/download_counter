@@ -12,14 +12,14 @@ results output to an html file.
 Usage
 =====
 
-The main functional parameters are set in download_counter.cfg.
+The main functional parameters are set in dlcounter.cfg.
 Additional options may be set through command line arguments.
 
 
 Command line switches
 ---------------------
 
-usage: download_counter.py [-d] [-h] [-i] [-v] [-D] [-V]
+   Usage: dlcounter.py [-d] [-h] [-i] [-v] [-D] [-V]
 
 Arguments:
 
@@ -37,13 +37,13 @@ Arguments:
     Matching download files are counted regardless of when they were
     downloaded, so this option should only be used on first run, (before
     the database contains data). This option overrides ACCESSLOGS in
-    download_counter.cfg.
+    dlcounter.cfg.
 
 Example
 -------
 The path string should be entered in the form::
 
-    $ python3 download-counter -n '/var/log/nginx/access.log'
+    $ python3 dlcounter.py -n '/var/log/nginx/access.log'
 
 To read all logs::
 
@@ -66,7 +66,7 @@ To read all logs::
 Configuration file
 ------------------
 
-The configuration file ('download_counter.cfg') must be in the same
+The configuration file ('dlcounter.cfg') must be in the same
 directory as 'download_counter.py'.
 
 **[ACCESSLOGS]** One or more access logs.
@@ -76,8 +76,8 @@ directory as 'download_counter.py'.
     reverse chronological order (process oldest first).
 
     Default:
-        - log1 = /var/log/nginx/access.log.1
-        - log2 = /var/log/nginx/access.log
+        log1 = /var/log/nginx/access.log
+
 
 **[FILEPATH]** The first part of the download file's string.
 
@@ -149,7 +149,7 @@ from pathlib import Path
 from datetime import datetime
 from glob import iglob
 
-import download_counter_html as htm
+import dlcounter_html as htm
 
 
 def time_format(readf='', writef=''):
@@ -395,7 +395,7 @@ def write_html(con, htmlfile):
     """
     try:
         with open(htmlfile, 'w', encoding="utf-8") as file:
-            file.write(htm.html_top())
+            file.write(htm.html_top(format_datetime_output(datetime.now())))
     except IOError as err:
         sys.exit(err)
     # Read database
@@ -418,14 +418,15 @@ def init_db(logpath, opt):
     """Initialise database.
 
     Similar to main() but reads all logs that start with 'logpath'
-    and does NOT check timestamp before counting.
+    and does NOT check timestamp before counting. If the database already
+    exists, the old table will be deleted and a new table created.
 
     Parameters
     ----------
     logpath : string
         Path to access logs.
     opt : dict
-        Parameters from download_counter.cfg.
+        Parameters from dlcounter.cfg.
 
     Returns
     -------
@@ -527,7 +528,7 @@ def log_to_sql(con, file, searchstring, timecheck=None):
     """Copy download data from log file to database.
 
     Read one log file and update database.
-    Updating is handled by :func:`~download_counter.update_db`.
+    Updating is handled by :func:`~dlcounter.update_db`.
 
     Parameters
     ----------
@@ -561,10 +562,10 @@ def log_to_sql(con, file, searchstring, timecheck=None):
 
 
 def get_config():
-    """Return dict of arguments from download_counter.cfg.
+    """Return dict of arguments from dlcounter.cfg.
 
-    List values are retrieved by :func:`~download_counter.list_section`.
-    Single values retrieved by :func:`~download_counter.first_item_in_section`.
+    List values are retrieved by :func:`~dlcounter.list_section`.
+    Single values retrieved by :func:`~dlcounter.first_item_in_section`.
     Also print parameters from command line and config file when --verbose
     command line argument is passed.
 
@@ -579,7 +580,7 @@ def get_config():
 
     """
     config = configparser.ConfigParser()
-    _abs_cfgpath = Path(__file__).with_name('download_counter.cfg')
+    _abs_cfgpath = Path(__file__).with_name('dlcounter.cfg')
     check_path('cfg', _abs_cfgpath)
 
     config.read(_abs_cfgpath)
@@ -594,7 +595,7 @@ def get_config():
                    for file in files]
 
     if args.verbose:
-        print('\ndownload_counter.cfg arguments:')
+        print('\ndlcounter.cfg arguments:')
         print('-------------------------------')
         print('[ACCESSLOGS]:')
         for log in accesslogs:
@@ -699,7 +700,7 @@ if __name__ == '__main__':
         '-D', '--debug', action='store_true')
     # Show version
     parser.add_argument(
-        '-V', '--version', action='version', version='%(prog)s 0.6.0')
+        '-V', '--version', action='version', version='%(prog)s 0.9.0')
 
     args = parser.parse_args()
 

@@ -2,5 +2,5 @@ Web Page Template
 =================
 
 
-.. automodule:: download_counter_html
+.. automodule:: dlcounter_html
    :members:

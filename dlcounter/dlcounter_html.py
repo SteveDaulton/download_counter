@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 """HTML code for generating web page output.
 
-download_counter.py creates table data between html_top().
-and html_bottom(). This module provides the rest of the HTML for the
+dlcounter.py creates table data between ``html_top()``
+and ``html_bottom()``. This module provides the rest of the HTML for the
 download counter web page.
 
 
@@ -11,7 +11,7 @@ This file may be modified according to need.
 """
 
 
-def html_top():
+def html_top(timestamp):
     """Return beginning of html page.
 
     Returns
@@ -20,7 +20,7 @@ def html_top():
         HTML output.
 
     """
-    return """<!DOCTYPE html>
+    return f"""<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="utf-8" />
@@ -40,6 +40,7 @@ td {
 </head>
 <body>
 <h1>Downloads</h1>
+<h2>Updated {timestamp}</h2>
 
 <!-- You probably don't want to edit below this line -->
 

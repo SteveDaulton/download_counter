@@ -1,5 +1,5 @@
-from download_counter import __version__
+from dlcounter import __version__
 
 
 def test_version():
-    assert __version__ == '0.6.0'
+    assert __version__ == '0.9.0'

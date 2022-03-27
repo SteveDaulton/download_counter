@@ -2,5 +2,5 @@ API
 ===
 
 
-.. automodule:: download_counter
+.. automodule:: dlcounter
    :members:

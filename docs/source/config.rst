@@ -1,9 +1,10 @@
+#############
 Customisation
 #############
 
-Before use, the **download_counter.cfg** file must be customised to suit your
+Before use, the **dlcounter.cfg** file must be customised to suit your
 server setup. This file must be in the same directory as
-**download_counter.py**.
+**dlcounter.py**.
 
 Below are descriptions of the sections of the config file, and suggested
 settings for common setups based on a WordPress installation running on Nginx
@@ -11,14 +12,29 @@ and Ubuntu Linux.
 
 
 [ACCESSLOGS]
-************
+============
 
-Specify the log files to analyse.
+Specify the log file(s) to analyse.
 
-Typically, for a WordPress site on Nginx, these will be:
-:code:`/var/log/nginx/access.log` and :code:`/var/log/nginx/access.log.1`,
-which will jointly cover any 24 hour period. **The logs must be listed oldest
-first**. Files listed here must be plain text access.log files.
+Typically, for a WordPress site on Nginx, this will be: 
+:code:`/var/log/nginx/access.log`, which contains data since the last log
+rotation. Provided that downloadcounter runs immediately before log rotation it
+is sufficient to analyze just this one log file once per day. See the
+:ref:`"Log Rotation" <logrotate>` section for more information about how to
+use downloadcounter with logrotate.
+
+Example
+-------
+.. code-block:: text
+
+   [ACCESSLOGS]
+   log1 = /var/log/nginx/access.log
+
+
+Downloads are only counted if their time stamp is more recent than any
+downloads already counted. If it is necessary to analyze aditional (older) log
+files, then the files must be listed oldest first. All log files listed here
+must be plain text files.
 
 Example
 -------
@@ -30,7 +46,7 @@ Example
 
 
 [FILEPATH]
-**********
+==========
 
 The first part of the search string to identify the downloads in the log files.
 
@@ -54,11 +70,10 @@ Example
 
 
 [FILENAMES]
-***********
+===========
 
-The last part of the file(s) to search for in the log files.
-
-Typically this will be a list of file extensions.
+The last part of the file(s) to search for in the log files. Typically this
+will be a list of file extensions.
 
 Example
 -------
@@ -70,13 +85,13 @@ Example
 
 
 [WEBPAGE]
-*********
+=========
 
 The location for html output.
 
 Download Counter generates a web page for viewing the download totals.
 Typically this will be located within the public html directory of your
-website. **This must be a fully qualified path**. If omitted, no HTML will
+website. **This must be a fully qualified path**. If omitted, no html will
 be generated.
 
 Example
@@ -88,7 +103,7 @@ Example
 
 
 [DATETIME]
-**********
+==========
 
 Datetime formats for reading access logs and writing the html webpage.
 This section has two settings, both of which are *required*:
