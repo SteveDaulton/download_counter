@@ -264,13 +264,12 @@ Thus a script can be scheduled to run immediately before rotation by placing
 it in the folder ``/etc/logrotate.d/httpd-prerotate``.
 
 
-Note:
------
+.. note::
 
-By default, ``run-parts`` requires that script names must consist entirely of
-ASCII upper- and lower-case letters, ASCII digits, ASCII underscores, and
-ASCII minus-hyphens. In particular, **dots are not allowed**, so file extensions
-must not be used.
+  By default, ``run-parts`` requires that script names must consist entirely of
+  ASCII upper- and lower-case letters, ASCII digits, ASCII underscores, and
+  ASCII minus-hyphens. In particular, **dots are not allowed**, so file
+  extensions must not be used.
 
 
 
